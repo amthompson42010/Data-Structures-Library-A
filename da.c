@@ -9,23 +9,30 @@
 #include <assert.h>
 #include <stdlib.h>
 
+struct da {
+  void (*display)(FILE *, void*);
+  int size;
+  int filledIndices;
+  void **array;
+};
+
 /****************************** Public Interface ********************************/
 
 /**
  * Function to create/initialize a new dynamic array.
  * display -> the display function for the dynamic array.
  */
-DA *
-newDA(void (*d)(FILE *, void *))
-{
-    DA *items = malloc(sizeof(DA));
-    assert(items != 0);
-    items->size = 0;
-    items->capacity = 1;
-    items->display = d;
-    items->data = malloc(sizeof(void *) * 1);
-    assert(items->data != 0);
-    return items;
+DA *newDA(void (*d)(FILE *, void *)) {
+  assert( sizeof(DA) != 0 );
+
+  DA *arr = malloc( sizeof(DA) );
+
+  arr->array = malloc( 1 * sizeof(void*) );
+  arr->display = d;
+  arr->size = 1;
+  arr->filledIndices = 0;
+
+  return arr;
 }
 
 /**
@@ -33,24 +40,25 @@ newDA(void (*d)(FILE *, void *))
  * items -> the dynamic array
  * value -> value to be inserted
  */
-void 
-insertDA(DA *items, void *value)
-{
-    assert(sizeof(void *) * items->capacity * 2 != 0);
+void insertDA(DA *items, void *value) {
+  assert(sizeof(void*) * items->size * 2 != 0);
 
-    if(items->size < items->capacity)
-    {
-        items->data[items->size] = value;
-        items->size +=1;
-    }
-    else
-    {
-        items->data = realloc(items->data, 2 * items->capacity * sizeof(void*));
-        items->data[items->size] = value;
-        items->capacity *= 2;
-        items->size += 1;
-    }
-    return;
+  if ( items->filledIndices < items->size ) {
+    items->array[items->filledIndices] = value;
+    items->filledIndices += 1;
+  }
+
+  else {
+
+    items->array = realloc( items->array, 2 * items->size * sizeof(void*) );
+
+    items->array[items->filledIndices] = value;
+
+    items->size *= 2;
+    items->filledIndices += 1;
+  }
+
+  return;
 }
 
 /**
@@ -59,42 +67,35 @@ insertDA(DA *items, void *value)
  * to 25% then the array is shrunken by half.
  * items -> the dynamic array
  */
-void *
-removeDA(DA *items)
-{
-    assert(items->size > 0);
+void *removeDA(DA *items) {
+  assert(items->filledIndices > 0);
 
-    void *temp = items->data[items->size - 1];
-    items->data[items->size - 1] = NULL;
-    items->size -= 1;
+  void *tmp = items->array[items->filledIndices-1];
+  items->array[items->filledIndices-1] = NULL;
+  items->filledIndices -= 1;
 
-    if(items->size < items->capacity * .25)
-    {
-        items->data = realloc(items->data, (items->capacity / 2) * sizeof(void*));
-        items->capacity /= 2;
-    }
+  if (items->filledIndices < items->size * .25) {
+    items->array = realloc( items->array, (items->size/2) * sizeof(void*) );
+    items->size /= 2;
+  }
 
-    return temp;
+  return tmp;
 }
-
 
 /**
  * Function to join to dynamic arrays.
  * recipient -> dynamic array to be merged into
  * donor -> dynamic array to be merged into the recipient
  */
-void
-unionDA(DA *recipient, DA *donor)
-{
-    int i;
-    for(i = 0; i < donor->size; i++)
-    {
-        insertDA(recipient, donor->data[i]);
-    }
+void unionDA(DA *recipient, DA *donor) {
+  int i;
+  for (i = 0; i < donor->filledIndices; i++) {
+    insertDA(recipient, donor->array[i]);
+  }
 
-    donor->data = realloc(donor->data, sizeof(void*));
-    donor->capacity = 1;
-    donor->size = 0;
+  donor->array = realloc( donor->array, sizeof(void*) );
+  donor->size = 1;
+  donor->filledIndices = 0;
 }
 
 /**
@@ -102,12 +103,9 @@ unionDA(DA *recipient, DA *donor)
  * items -> the dynamic array
  * index -> index to be found in the dynamic array
  */
-void
-*getDA(DA *items, int index)
-{
-    assert(index >= 0);
-    assert(index < items->size);
-    return items->data[index];
+void *getDA(DA *items, int index) {
+  assert(index >= 0 && index < items->filledIndices);
+  return items->array[index];
 }
 
 /**
@@ -118,26 +116,21 @@ void
  * value -> the value to be inserted into the value at the given 
  *          index in the dynamic array
  */
-void *
-setDA(DA *items, int index, void *value)
-{
-    assert(index >= 0);
-    assert(index <= items->size);
+void *setDA(DA *items, int index, void *value) {
+  assert(index >= 0 && index <= items->filledIndices);
 
-    void *oldValue;
+  void *replacedVal;
 
-    if(index == items->size)
-    {
-        insertDA(items, value);
-        oldValue = NULL;
-    }
-    else
-    {
-        oldValue = items->data[index];
-        items->data[index] = value;
-    }
+  if (index == items->filledIndices) {
+    insertDA(items, value);
+    replacedVal = NULL;
+  }
+  else {
+    replacedVal = items->array[index];
+    items->array[index] = value;
+  }
 
-    return oldValue;
+  return replacedVal;
 }
 
 /**
@@ -147,38 +140,32 @@ setDA(DA *items, int index, void *value)
  * to take away that extra space.
  * items -> the dynamic array
  */
-void **
-extractDA(DA *items)
-{
-    if(items->size == 0)
-    {
-        return 0;
-    }
-    assert(items->size * sizeof(void*) != 0);
-    
-    void **separateArray = malloc(items->capacity * sizeof(void*) != 0);
-    int i;
-    for(i = 0; i < items->capacity; i++)
-    {
-        separateArray[i] = items->data[i];
-    }
+void **extractDA(DA *items) {
+  if (items->filledIndices == 0) {
+    return 0;
+  }
+   assert( items->filledIndices * sizeof(void*) != 0 );
 
-    items->data = realloc(items->data, items->size * sizeof(void*));
-    items->data = realloc(items->data, sizeof(void*));
-    items->capacity = 1;
-    items->size = 0;
+   void **newArr = malloc( items->size * sizeof(void *));
+   int i;
+   for (i = 0; i < items->size; i++) {
+    newArr[i] = items->array[i];
+   }
 
-    return separateArray;
+   items->array = realloc( items->array, items->filledIndices * sizeof(void*) );
+   items->array = realloc( items->array, sizeof(void*) );
+   items->size = 1;
+   items->filledIndices = 0;
+
+   return newArr;
 }
 
 /**
  * Function to get the size of the dynamic array.
  * items -> the dynamic array.
  */
-int
-sizeDA(DA *items)
-{
-    return items->size;
+int sizeDA(DA *items) {
+  return items->filledIndices;
 }
 
 /**
@@ -187,23 +174,22 @@ sizeDA(DA *items)
  * fp -> the file pointer to print the array to
  * items -> the dynamic array
  */
-void 
-visualizeDA(FILE *fp, DA *items)
-{
-    int remainingSpace = items->capacity - items->size;
-    fprintf(fp, "[");
-    if(items->size != 0)
-    {
-        int i;
-        for(i = 0; i < items->size; i++)
-        {
-            items->display(fp, items->data[i]);
-            if(i != items->size - 1) { fprintf(fp, ","); }
-        }
-    }
+void visualizeDA(FILE *fp, DA *items) {
+  int remaining = items->size - items->filledIndices;
 
-    fprintf(fp, "]");
-    fprintf(fp, "[%d]", remainingSpace);
+  fprintf(fp, "[");
+
+  if (items->filledIndices != 0) {
+    int i;
+    for (i = 0; i < items->filledIndices; i++) {
+      items->display(fp, items->array[i]);
+      if (i != items->filledIndices - 1) { fprintf(fp, ","); }
+    }
+  }
+
+  fprintf(fp, "]");
+
+  fprintf(fp, "[%d]", remaining);
 }
 
 /**
@@ -211,15 +197,16 @@ visualizeDA(FILE *fp, DA *items)
  * fp -> the file pointer to print the array to
  * items -> the dynamic array
  */
-void
-displayDA(FILE *fp, DA *items)
-{
+void displayDA(FILE *fp, DA *items) {
+  fprintf(fp, "[");
+
+  if (items->filledIndices != 0) {
     int i;
-    fprintf(fp, "[");
-    for(i = 0; i < items->size; ++i)
-    {
-        items->display(fp, items->data[i]);
-        if(i != items->size - 1) { fprintf(fp, ","); }
+    for (i = 0; i < items->filledIndices; i++) {
+      items->display(fp, items->array[i]);
+      if (i != items->filledIndices - 1) { fprintf(fp, ","); }
     }
-    fprintf(fp, "]");
+  }
+
+  fprintf(fp, "]");
 }

@@ -1,5 +1,5 @@
 OBJSDA = integer.o da.o test-da.o
-OBJSCDA = integer.o cda.o test-cda.o
+OBJSCDA = real.o integer.o cda.o test-cda.o
 OBJSQ = integer.o queue.o test-queue.o cda.o
 OBJSSK = integer.o stack.o test-stack.o da.o
 OOPTS = -Wall -Wextra -g -c -std=c99
@@ -33,13 +33,16 @@ queue.o: queue.c queue.h cda.c
 stack.o: stack.c stack.h da.c
 	gcc $(OOPTS) stack.c
 
+real.0: real.c real.h
+	gcc $(OOPTS) real.c
+
 integer.o: integer.c integer.h
 	gcc $(OOPTS) integer.c
 
 test-da.o: test-da.c integer.h da.c
 	gcc $(OOPTS) test-da.c
 
-test-cda.o: test-cda.c integer.h cda.c
+test-cda.o: test-cda.c real.h integer.h cda.c
 	gcc $(OOPTS) test-cda.c
 
 test-queue.o: test-queue.c integer.h cda.c queue.h
@@ -52,7 +55,7 @@ queue-test.o: queue-test.c integer.h cda.c queue.h
 	gcc $(OOPTS) queue-test.c
 
 clean:
-	rm -f *.o test-da test-cda test-queue test-stack
+	rm -f *.o test-da test-cda test-queue test-stack test-cda
 
 test:
 	echo
